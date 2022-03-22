@@ -1,6 +1,6 @@
 # "Text Practice"
 # "Sara Dovalo del Río and Javier Muñoz Flores"
-# Date: "22/03/2022"
+# Date: "23/03/2022"
 
 # Import libraries
 if (!require("readtext")) install.packages("readtext")

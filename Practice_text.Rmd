@@ -1,7 +1,7 @@
 ---
 title: "Text Practice"
-author: "Sara Dovalo and Javier Muñoz"
-date: "18/3/2022"
+author: "Sara Dovalo del Río and Javier Muñoz Flores"
+date: "23/3/2022"
 output: pdf_document
 ---
 
@@ -20,13 +20,14 @@ library(ggplot2)
 library(quanteda.textstats)
 library(quanteda.textplots)
 ```
+
 # Introduction
 
-This practice is based on a text analysis work. Therefore, it has been necessary to choose a book to work with. The book selected has been *The Truth about the Titanic", by Archibald Gracie. Basically, it is a recital written by a survivor of the tragic porpular event, in which he tells his own experience.
+This practice is based on a text analysis work. Therefore, it has been necessary to choose a book to work with. The book selected has been *The Truth about the Titanic*, by Archibald Gracie. Basically, it is a recital written by a survivor of the tragic popular event, in which he tells his own experience.
 
 # Preprocessing
 
-First of all, we load the dataset with `readtext`function, which treats the text file as a  `data.frame` object. We read the text from the public web page [*Gutenberg*](https://www.gutenberg.org). We change the name of the object by the author of the document.
+First of all, we load the dataset with `readtext()` function, which treats the text file as a  `data.frame` object. We read the text from the public web page [*Gutenberg*](https://www.gutenberg.org). We change the name of the object by the author of the document.
 
 ```{r}
 #Load the data
