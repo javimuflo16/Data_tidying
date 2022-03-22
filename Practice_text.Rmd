@@ -7,6 +7,12 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+if (!require("readtext")) install.packages("readtext")
+if (!require("quanteda")) install.packages("quanteda")
+if (!require("stringi")) install.packages("stringi")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("quanteda.textstats")) install.packages("quanteda.textstats")
+if (!require("quanteda.textplots")) install.packages("quanteda.textplots")
 library(readtext)
 library(quanteda)
 library(stringi)
@@ -14,10 +20,13 @@ library(ggplot2)
 library(quanteda.textstats)
 library(quanteda.textplots)
 ```
+# Introduction
 
-## Preprocessing
+This practice is based on a text analysis work. Therefore, it has been necessary to choose a book to work with. The book selected has been *The Truth about the Titanic", by Archibald Gracie. Basically, it is a recital written by a survivor of the tragic porpular event, in which he tells his own experience.
 
-First of all, we load the dataset with `readtext`function, which treats the text file as `data.frame`object.
+# Preprocessing
+
+First of all, we load the dataset with `readtext`function, which treats the text file as a  `data.frame` object. We read the text from the public web page [*Gutenberg*](https://www.gutenberg.org). We change the name of the object by the author of the document.
 
 ```{r}
 #Load the data
@@ -28,44 +37,59 @@ names(data_text) <- "Archibald Gracie"
 In order to separate the text from the metadata which can include the file, we find the start and the end of the book looking directly the text. It is recommendable for the next steps of the practice. 
 
 ```{r}
+# Specify start and end of the text
 start_text <- stri_locate_first_fixed(data_text, "CHAPTER I\n\nTHE LAST DAY ABOARD SHIP")[1]
 end_text <- stri_locate_last_fixed(data_text, "deeds.")[1]
 # Check the end of the text
 kwic(tokens(data_text), "deeds")
 
+# Create the object which contains only the book
 novel <- stri_sub(data_text, start_text, end_text)
 ```
+
 With the objective of an easier analysis, it is recomendable to convert the text to lower case and split the document into words. It can do easily using `char_tolower()`(as we handle with `character` objects) and then `tokens()` functions to the word partition.
 
 ```{r}
+# Convert to lower case
 novel_lower <- char_tolower(novel)
+
+# Split into words
 titanic_word <- tokens(novel_lower, remove_punct = TRUE) %>% as.character()
-titanic_word[1:10]
+
+# Print the first five words
+titanic_word[1:5]
 ```
 
 # Tasks
 
-### 1. Analyse and study the occurrence of words related with love or positive feelings in general.
+## 1. Analyse and study the occurrence of words related with love or positive feelings in general.
 
 Fot carrying out this task we have used `which()` function to match the words we have indicated previously in a vector. We keep into a list the number of times that some words related with positive feelings appear in the novel.
 
 ```{r}
+# List of words
 Words <- c("love","feeling", "smile", "desire", "wonderful","happy")
 list_pwords <- list()
+
+# List of the ocurrence of words
 for (i in 1:length(Words)){
   list_pwords = c(list_pwords, length(titanic_word[which(titanic_word == Words[i])]))
 }
-Frequency <- list_pwords %>% unlist() 
+# Frequency of words
+Frequency <- list_pwords %>% unlist()
+# Create a matrix to an easier visualize with kable
 matrix_count <- data.frame(Words, Frequency)
 knitr::kable(matrix_count,"latex")
 ```
 
-### 2. Make frequency plots.
+## 2. Make frequency plots.
 
-It can be interesting to make a plot of the 100 words most frequent in the text. The `dfm()` command allows to us to create a document-frequency matrix. Once this matrix has been computed, we only have to use the matrix and to indicate the first 100 most frequent words in the parameter `n`of the function `textstat_frequency()`.
+It can be interesting to make a plot of the 100 words most frequent in the text. The `dfm()` command allows to us to create a document-frequency matrix. Once this matrix has been computed, we only have to use the matrix and to indicate the first 100 most frequent words in the parameter `n` of the function `textstat_frequency()`. We also print the 10 words most repeated.
 
-```{r}
+```{r, warning=FALSE}
+# To dfm
 titanic_dfm <- dfm(novel_lower, remove_punct = TRUE)
+# Frequency plot
 theme_set(theme_minimal())
 textstat_frequency(titanic_dfm, n = 100) %>% 
   ggplot(aes(x = rank, y = frequency)) +
@@ -73,19 +97,24 @@ textstat_frequency(titanic_dfm, n = 100) %>%
   labs(x = "Frequency rank", y = "Term frequency")
 textstat_frequency(titanic_dfm, n = 10)
 ```
+
 As expected, the most repeated words are the most common words in any text document, i.e *the*, *and* or *to*.
 
-### 3. Compare word frequency data of words like “he”, “she”, “him”, “her” and show also relative frequencies.
+## 3. Compare word frequency data of words like “he”, “she”, “him”, “her” and show also relative frequencies.
 
 First, we show frequencies of each word in the text to identify the most repeated ones.
 
 ```{r}
+# All word frequencies sorted
 sorted_titanic_freqs_t <- topfeatures(titanic_dfm, n = nfeat(titanic_dfm))
+# Only the words of interest
 sorted_titanic_freqs_t[c("he", "she", "him", "her")]
 ```
+
 It seems that *he* is much more repeated than the other items. However, the number of the rest of the words in the text is similar. We compute the ratio between *he* and *she* to check the first fact and the ratio between *she* and *her* to check the second one.
 
 ```{r}
+# Comparison
 sorted_titanic_freqs_t["he"] / sorted_titanic_freqs_t["she"]
 sorted_titanic_freqs_t["she"] / sorted_titanic_freqs_t["her"]
 ```
@@ -95,28 +124,33 @@ While the ratio in the first case is almost three, i.e the word *he* is almost t
 The relative frequencies can be extract weighting directly the matrix created previously using `dfm_weight()` function. In addition, we plot these frequencies and the positive words of task 1.
 
 ```{r}
+# Weigthing dfdfm
 titanic_dfm_pct <- dfm_weight(titanic_dfm, scheme = "prop") * 100
 dfm_select(titanic_dfm_pct, pattern = c("he", "she", "him", "her", Words))
+# Plot relative frquencies
 textstat_frequency(titanic_dfm[, c("he", "she", "him", "her", Words)]) %>% 
   ggplot(aes(x = reorder(feature, -rank), y = frequency)) +
   geom_bar(stat = "identity") + coord_flip() + 
   labs(x = "", y = "Term Frequency as a Percentage")
 ```
-### 4. Make a token distribution analysis
+
+## 4. Make a token distribution analysis
 
 Lexical dispersion plots allows to measure the frequency at which a word appears along the different parts of a text. We will use them to compare the frequency of words like *boat* and *ice*.
 
-```{r}
+```{r, warning=FALSE}
+# Lexical plot
 textplot_xray(
     kwic(novel, pattern = "boat"),
     kwic(novel, pattern = "ice")) + 
     ggtitle("Lexical dispersion")
 ```
+
 This plot suggests that the word *boat* appears during all the text piece, since obviously almost the entire work occurs in a boat. However, *ice* appears with more frequency in the last part.
 
-### 5. Identify chapter breaks.
+## 5. Identify chapter breaks.
 
-The chapters will be broken using the parameter `pattern` of the function `corpus_segment`. It allows to specify certain regular expression to search the beginning of each chapter. In particular, in our case all chapters start with: *CHAPTER (CHARACTERS IN ROMAN LETTERS) (character)*. Thus, we are able to identify the seven chapters which contain the text and split it in seven different documents.
+The chapters will be broken using the parameter `pattern` of the function `corpus_segment`. It allows to specify certain regular expression to search the beginning of each chapter. In particular, in our case all chapters start with: *CHAPTER (CHARACTERS IN ROMAN LETTERS)*. Thus, we are able to identify the seven chapters which contain the text and split it in seven different documents.
 
 ```{r}
 # Identify the location of the chapter breaks
@@ -125,6 +159,7 @@ chapters_corp <-
     corpus_segment(pattern = "CHAPTER\\s[A-Z]*\\n", valuetype = "regex")
 summary(chapters_corp, 7)
 ```
+
 In order to tidy it up, the final character of the chapters title can be removed using `stri_trim_right()`. Finally, the titles of the chapters are renamed.
 
 ```{r}
@@ -135,11 +170,13 @@ summary(chapters_corp, n = 7)
 # Rename chapters
 docnames(chapters_corp) <- docvars(chapters_corp, "pattern")
 ```
-### 6. Only if you have some knowledge about the novel: Make a correlation analysis between words related with love or positive feelings and some particular characters or people of the novel.
+
+## 6. Only if you have some knowledge about the novel: Make a correlation analysis between words related with love or positive feelings and some particular characters or people of the novel.
 
 We have not read *The Truth about the Titanic*, but it is known that it is based on Gracie’s detailed account of his experience the night in which passengers of *Titanic* ship suffered lot, becoming a popular tragedy known around the entire word. Hence, Gracie is a character which appears in the document, as he tells his own testimony. We analyse the *Gracie* word with happy to do the correlation analysis.
 
-```{r}
+```{r, warning=FALSE}
+# Correlation analysis
 chap_dfm <- dfm(chapters_corp)
 dfm_weight(chap_dfm, scheme = "prop") %>% 
     textstat_simil(selection = c("gracie", "happy"), method = "correlation", margin = "features") %>%
@@ -164,18 +201,20 @@ ggplot(data = samples, aes(x = cor_sample, y = ..density..)) +
          title = "Histogram of Random Correlation Coefficients with Normal Curve")
 ```
 
-### 7. Show some measures of lexical variety.
+## 7. Show some measures of lexical variety.
 
 We will calculate the mean word frequency for each chapter, i.e, the number of words in the chapter by size of vocabulary of it. We sort it by the value of the mean calculated, in decreasing order. 
 
 ```{r}
+# Calculate mean
 mean_words <- (ntoken(chapters_corp) / ntype(chapters_corp))
 sort(mean_words, decreasing = TRUE) 
 ```
+
 We can plot the mean along the number of chapters.
 
 ```{r}
-# Normal plot
+# Plot without scaling
 (ntoken(chapters_corp) / ntype(chapters_corp)) %>%
     plot(type = "h", ylab = "Mean word frequency")
 # Scaled plot
@@ -184,18 +223,19 @@ We can plot the mean along the number of chapters.
     plot(type = "h", ylab = "Scaled mean word frequency")
 ```
 
-The plot suggests that the last two chapters contain a large number of tokens in comparison with the vocabulary size. It means that in the last two chapters there are more repeated words as the ratio is higher.
+The plot suggests that the last two chapters contain a large number of tokens in comparison with the vocabulary size. It means that in the last two chapters there are more repeated words, since the ratio is higher.
 
-The TTR (Type Token Ratio), the total number of unique words (types) divided by the total number of words (tokens) can be computed transforming into a `dfm`object each chapter. Then, the function `textstat_lexdiv()` allows to get the ratio for each chapter.
+The TTR (Type Token Ratio), the total number of unique words (types) divided by the total number of words (tokens) can be computed transforming into a `dfm` object each chapter. Then, the function `textstat_lexdiv()` allows to get the ratio for each chapter.
 
 ```{r}
+# Calculate TTR
 dfm(chapters_corp) %>% 
     textstat_lexdiv(measure = "TTR") 
 ```
 
 As expected, the chapters with lowest RTT are precisely the ones that have the highest mean word. Thus, the last two chapters are the segments with lowest lexical richness, since the closer the TTR ratio is to 1, the greater the lexical richness of the chapter.
 
-### 8. Calculate the Hapax Richness.
+## 8. Calculate the Hapax Richness.
 
 Hapax Richness measure is defined as the number of words that occur only once divided by the total number of words. 
 
@@ -207,5 +247,6 @@ head(hapax_measure)
 # Plot ratios
 barplot(hapax_measure, beside = TRUE, col = "grey", names.arg = seq_len(ndoc(chap_dfm)))
 ```
+
 The barplot suggest the same as before, the last two chapters contain few unique words in comparison with the total number of words in the chapter.
 
