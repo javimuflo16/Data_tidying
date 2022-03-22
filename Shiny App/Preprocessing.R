@@ -1,0 +1,55 @@
+library(readr)
+library(tidyverse)
+
+data = read_csv("death_NY.csv")
+attach(data)
+
+#-----------------------------------
+# Preprocessing
+#-----------------------------------
+# We convert the variables of interest in our analysis into numerical variables
+cbind(lapply(data,class))
+data$Deaths <-  as.numeric(data$Deaths)
+data$"Death Rate" <-  as.numeric(data$"Death Rate")
+data$"Age Adjusted Death Rate" <- as.numeric(data$"Age Adjusted Death Rate")
+
+# As the objective of this Shiny App is to obtain the causes of death of 
+#the NY population according to race and sex,
+# we omit those values of the variable Race Ethnicity and Leading Cause that are not identified.
+ind1 <- which(data$"Race Ethnicity"== "Other Race/ Ethnicity")
+ind2 <- which(data$"Race Ethnicity"== "Not Stated/Unknown")              
+ind3 <- which(data$"Leading Cause"== "All Other Causes")
+data <- data[c(-ind1,-ind2,-ind3),]
+
+# To make the names shorter so that the graphical representations come out better
+colnames(data) <- c("year", "leading_cause", "sex", "race_ethnicity", "deaths", "death_rate", "age_adjusted_death_rate")
+
+unique(data$leading_cause)
+data = 
+  data %>% 
+  mutate(
+    leading_cause = str_replace_all(leading_cause, "[//(//)]", ""),
+    leading_cause = str_replace(leading_cause, "Influenza Flu and Pneumonia J09-J18", "Influenza & Pneumonia"),
+    leading_cause = str_replace(leading_cause, "Accidents Except Drug Posioning V01-X39, X43, X45-X59, Y85-Y86", "Accidents"),
+    leading_cause = str_replace(leading_cause, "Cerebrovascular Disease Stroke: I60-I69", "Cerebrovascular Disease"),
+    leading_cause = str_replace(leading_cause, "Assault Homicide: Y87.1, X85-Y09", "Assault"),
+    leading_cause = str_replace(leading_cause, "Essential Hypertension and Renal Diseases (I10, I12)", "Hypertension & Renal Dis."),
+    leading_cause = str_replace(leading_cause, "Human Immunodeficiency Virus Disease HIV: B20-B24", "HIV"),
+    leading_cause = str_replace(leading_cause, "Diseases of Heart I00-I09, I11, I13, I20-I51", "Diseases of Heart"),
+    leading_cause = str_replace(leading_cause, "Alzheimer's Disease G30", "Alzheimer's Disease"),
+    leading_cause = str_replace(leading_cause, "Chronic Liver Disease and Cirrhosis K70, K73", "Chronic Liver Disease/Cirrhosis"),
+    leading_cause = str_replace(leading_cause, "Malignant Neoplasms Cancer: C00-C97", "Malignant Neoplasms"),
+    leading_cause = str_replace(leading_cause, "Diabetes Mellitus E10-E14", "Diabetes Mellitus"),
+    leading_cause = str_replace(leading_cause, "Mental and Behavioral Disorders due to Accidental Poisoning and Other Psychoactive Substance Use F11-F16, F18-F19, X40-X42, X44", "Accidental Poisoning/Substance Use"),
+    leading_cause = str_replace(leading_cause, "Septicemia A40-A41", "Septicemia"),
+    leading_cause = str_replace(leading_cause, "Chronic Lower Respiratory Diseases J40-J47", "Chronic Lower Respiratory Dis."),
+    leading_cause = str_replace(leading_cause, "Nephritis, Nephrotic Syndrome and Nephrisis N00-N07, N17-N19, N25-N27", "Nephritis"),
+    leading_cause = str_replace(leading_cause, "Certain Conditions originating in the Perinatal Period P00-P96", "Perinatal Period Conditions"),
+    leading_cause = str_replace(leading_cause, "Viral Hepatitis B15-B19", "Viral Hepatitis"),
+    leading_cause = str_replace(leading_cause, "Intentional Self-Harm Suicide: X60-X84, Y87.0", "Suicide"),
+    leading_cause = str_replace(leading_cause, "Congenital Malformations, Deformations, and Chromosomal Abnormalities Q00-Q99", "Congenital Malformations")
+  )
+
+# This is the dataset that we will use in our Shiny App
+View(data)
+write_csv(data, "final_data.csv")
