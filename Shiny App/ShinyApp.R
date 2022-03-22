@@ -2,7 +2,7 @@
 # "Data Tyding and Reporting"
 # Authors: Sara Dovalo del Río and Javier Muñoz Flores"
 
-if (!require("shiny")) install.packages("shiniy")
+if (!require("shiny")) install.packages("shiny")
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("readr")) install.packages("readr")
