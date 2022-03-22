@@ -1,0 +1,141 @@
+---
+title: "Block III"
+author: "Sara Dovalo and Javier Muñoz Flores"
+date: "21/3/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(h2o)
+library(dplyr)
+library(ggplot2)
+```
+
+# Introduction
+
+The content of this section is, mainly, a further description of the dataset used as well as the exposition of the problem to solve. 
+
+The dataset selected contains several patient records of different medical measurements in order to predict wether a person is more likely to suffer a heart disease, i.e. a failure . The data has been retrieved from the public [*kaggle*](https://www.kaggle.com/datasets/fedesoriano/heart-failure-prediction) repository and it is the product of the combination of five different datasets from different regions of EEUU. The final dataset contains in total 918 instances and 12 attributes, which 7 of them are categorical and the five remaining are numerical:
+
+ - `Age`(*quantitative*): age of the patient in years
+ - `Sex`(*qualitative*): sex of the patient [*M*: Male, *F*: Female]
+ - `ChestPainType`(*qualitative*): Angina type, i.e. chest pain, frequently caused when the heart muscle is not able to get enough oxygen-rich blood [*TA*: Typical Angina, *ATA*: Atypical Angina, NAP: Non-Anginal Pain, ASY: Asymptomatic]
+ - `RestingBP`(*quantitative*): resting blood pressure [mm Hg]. A normal level is less than 180 mm Hg.
+ - `Cholesterol`(*quantitative*): serum cholesterol [mm/dl]
+ - `FastingBS`(*qualitative*): fasting blood sugar [1: if FastingBS > 120 mg/dl, 0: otherwise]
+ - `RestingECG`(*qualitative*): resting electrocardiogram results [Normal: Normal, ST: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV), LVH: showing probable or definite left ventricular hypertrophy by Estes' criteria]
+ - `MaxHR`(*quantitative*): maximum heart rate achieved [Numeric value between 60 and 202]
+ - `ExerciseAngina`: exercise-induced angina [Y: Yes, N: No]
+ - `Oldpeak`(*quantitative*): oldpeak = ST [Numeric value measured in depression]
+ - `ST_Slope`(*qualitative*): the slope of the peak exercise ST segment [Up: upsloping, Flat: flat, Down: downsloping]
+ - `HeartDisease`(*qualitative*): class variable [1: heart disease, 0: Normal]
+
+Clearly, it is a binary classification problem since the target variable has two levels.
+
+# Preprocessing 
+
+First of all , it is suitable to visualize the data and to identify if there are missing values which could add noise and disrupt the performance of the future models created.
+
+```{r, include = FALSE}
+# Load data and rename first column
+heart.data <- read.csv("heart.csv")
+# Data summary
+summary(heart.data)
+```
+
+```{r}
+# Count number of zeros (missing values)
+heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
+```
+
+We notice that the variable `Cholesterol` contains 172 values equal to zero. They must be considered as missing values as a person cannot that such a low level of cholesterol in blood. We decide to eliminate those observations that have a zero in that variable. 
+
+```{r}
+# Eliminate rows which contain 0 in variable Cholesterol
+heart.data = heart.data %>%
+filter(Cholesterol != 0)
+# Number of missing values
+heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
+```
+
+
+Furthermore, since the dataset includes several categorical attributes, it is necessary to transform them into *factors*. 
+
+```{r}
+# Categorical variables as factors
+heart.data = heart.data %>% 
+       mutate_each_(funs(factor(.)),c(2,3,6,7,9,11,12))
+str(heart.data)
+```
+
+To finish this section, we check if the classes of the response `HeartDisease` are balanced or not. We visualize it through a barplot to see it more clearly.
+
+```{r}
+# Count the observation of each class
+heart.data %>%
+count(HeartDisease)
+# Barplot
+ggplot(heart.data, aes(HeartDisease)) + geom_bar()
+```
+The classes are balanced, it will be not needed to over/undersampling the sample.
+
+## Modelling with `H2O`package
+
+We follow the same procedure that we did in classroom for using `h2o.automl()`, i.e. fitting, benchmarking, predicting and explaining, in that order.
+
+### Fitting 
+
+Before starting with the selection of the models, the *local H2O cluster* is initialized in order to leverage the parallelization in the virtual machine which the package provides and to use H2O functions.
+
+The first step is to convert the data into a `h2o`object and then, to identify the names of the predictors as well as the name of the response.
+
+Then, it is important to mention that there will not be splitting into train and test, since we will use cross-validation metrics on the leaderboard model. Thus, we have to specify the number of folds (in our case will be `nfolds = 8`) needed to the cross-validation process. However, we do not have to indicate the predictors names, instead only the`dataFrame`and the response variable. In addition, we do not exclude any algorithm in `h2o.automl()` method, but we limit the time for fitting the models (`max_runtime_secs = 30` and `max_runtime_secs_per_model = 5`)
+
+```{r}
+# Initialize h2o
+h2o.init()
+# Send data to local H2O cluster
+data.h <- as.h2o(heart.data)
+# Data summary 
+h2o.describe(data.h)
+# Identify the names of the response and predictors
+resp_h <- "HeartDisease"
+pred_h<- setdiff(names(data.h), resp_h)
+# Call h2o.automl()
+model_h <- h2o.automl(y = resp_h, training_frame = data.h, max_runtime_secs = 30,max_runtime_secs_per_model = 5, nfolds = 8,
+seed = 1, verbosity = NULL)
+```
+
+### Benchmarking
+
+In this section, we have to explore the leaderboard of models in order to carry out a first comparison.
+
+```{r}
+# Leaderboard
+lead_h <- model_h@leaderboard
+names(lead_h)[5] <- "mpce" # Rename mean_per_class_error to shorten output
+print(lead_h[, -6], n = nrow(lead_h)) # Exclude final column to fit the table in one page
+```
+The leader has been a *StackedEnsemble* model with an error
+
+### Prediction
+
+We select the leader of the models and predict a few rows.
+
+```{r}
+h2o.predict(object = model_h@leader, newdata = data.h[1:8, ])
+```
+
+### Explanation
+
+```{r}
+exp <- h2o.explain(object = model_h, newdata = data.h)
+exp
+```
+
+
+
+
+
+
