@@ -38,6 +38,16 @@ The dataset selected contains several patient records of different medical measu
 
 Clearly, it is a binary classification problem since the target variable has two levels.
 
+We show the correlation between the numeric variables through a niceplot to carry out a first exploratory analysis.
+
+```{r}
+# Plot correlation
+data_num <- heart.data %>%
+select(where(is.numeric)) 
+corr <- correlate(data_num)
+rplot(corr, print_cor = TRUE)
+```
+
 # Preprocessing 
 
 First of all, it is suitable to visualize the data and to identify if there are missing values which could add noise and disrupt the performance of the future models created.
@@ -101,6 +111,7 @@ Then, it is important to mention that there will not be splitting into train and
 ```{r, message=FALSE}
 # Initialize h2o
 h2o.init()
+h2o.no_progress()
 # Send data to local H2O cluster
 data.h <- as.h2o(heart.data)
 # Data summary 
@@ -136,11 +147,16 @@ h2o.predict(object = model_h@leader, newdata = data.h[1:8, ])
 
 ## Explanation
 
+Because of the short report we must to hand in, it has not be possible to do a large interpretation of the plot results. However, it is suitable to identify what are the variables most important for the model and the correlation of them with the response. Thus, we use *SHAP* plot and *Variable Importance* plot to carry out a short explanation. 
+
 ```{r, warning=FALSE, out.width = '50%', message=FALSE, cache=TRUE}
 exp <- h2o.explain(object = model_h, newdata = data.h)
 exp
+h2o.
 ```
-
+ Clearly, the most important variable is *ST_Slope*, an important feature which can be seen in an electrocardiogram. As expected, these unbiased features related with the functionality of the heart have an crucial role in the prediction.
+ 
+*SHAP* plot, for instance, reveals that women are more correlated with the response than men, a point that is not so clear in a first view.
 
 \newpage
 
@@ -213,6 +229,7 @@ The command `rsample::vfold_cv()` generates the 80 subsets of equal size, varyin
 
 
 ### Prediction
+
 Next, to assess the accuracy of the model for each of the samples generated with the cross-validation we will create a function that will mainly do the following: 
 
 1. A logistic regression and model fit for the _analysis_ data.
@@ -260,6 +277,7 @@ Therefore, the name of the columns added for the first of the samples is:
 ```{r}
 print(firstsample[1:7, setdiff("correct", names("HeartDisease"))])
 ```
+
 As we can see, half of the predictions in the first sample are incorrect. For this particular model, `.fitted` refers to the linear predictor of the _log-odds_.
 
 To do the above with the rest of the 79 samples obtained, we will apply the `purrr::map()` function, which applies the requested on each list:
@@ -293,7 +311,7 @@ prcomp(scale. = TRUE)
 tidy(pca_comp)
 ```
 
-First, we plot the first two PCA components and visualize if the classes form differentiated clusters.
+First, we plot the first two PCA components and visualize if the classes form differentiated clusters. By using the `augment()` function, we can complement the results as the PCA technique as the *k-means* algorithm. It is very useful in order to plot the categorization *k-means* in terms of the first two PCA components.
 
 ```{r}
 aug_pca <- augment(pca_comp, data = heart.data)
@@ -301,4 +319,17 @@ ggplot(data = aug_pca, aes(x = .fittedPC1, y = .fittedPC2)) +
 geom_point(aes(col = HeartDisease))
 ```
 
+We cannot distinguish two groups in the data. We apply *k-means* method and again visualize through the first two PCA components the division in clusters which has carried out the algorithm.
+
+```{r}
+k_m <- heart.data %>%
+select(where(is.numeric)) %>%
+kmeans(centers = 2)
+aug_k_m <- augment(k_m, data = heart.data)
+aug_k_m <- cbind(aug_k_m, aug_pca[".fittedPC1"], aug_pca[".fittedPC2"])
+ggplot(data = aug_k_m, mapping = aes(x = .fittedPC1, y = .fittedPC2)) +
+geom_point(aes(col = .cluster, pch = HeartDisease))
+```
+
+It seems that now there is less overlapping, if we look at the cluster *k-means* division. It suggests that cluster *k-means* division may distinguish two different population in a better way than the classes do it.
 
