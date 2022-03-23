@@ -16,6 +16,7 @@ library(ggplot2)
 ```
 
 \newpage
+
 # Introduction
 
 The content of this section is, mainly, a further description of the dataset used as well as the exposition of the problem to solve. 
@@ -122,6 +123,7 @@ lead_h <- model_h@leaderboard
 names(lead_h)[5] <- "mpce" # Rename mean_per_class_error to shorten output
 print(lead_h[, -6], n = nrow(lead_h)) # Exclude final column to fit the table in one page
 ```
+
 The leader has been a *StackedEnsemble* model with an error
 
 ## Prediction
@@ -141,22 +143,26 @@ exp
 
 
 \newpage
+
 # Modelling with `tidymodels` package
-`Tidymodelsis` an interface that unifies hundreds of functions from different packages, facilitating all stages of pre-processing, training, optimisation and validation of predictive models. 
-The main packages that are part of the tidymodels ecosystem are:`brrom`, `rsample`, `parsnip`, `discrim`, `corr` y `tidypredict` among others.
+
+`Tidymodels`is an interface that unifies hundreds of functions from different packages, facilitating all stages of pre-processing, training, optimization and validation of predictive models. 
+
+The main packages that are part of the `tidymodels` ecosystem are:`brrom`, `rsample`, `parsnip`, `discrim`, `corr` y `tidypredict`, among others.
 
 This package offers so many possibilities that they can hardly be shown with a single example.
 
-The first step is to split the database into two subsets, the one used for training and the one used for validation. This is done with the `initial_split()` command of the `rsample` package. The training dataset, the one used for training the model and the one used to validate the model metrics can then be separated to help select from a set of models applied on the same data which one performs best. It could be separated into two subsets (training and test), but it is best practice to perform a cross-validation, so this one will be applied.
+The first step is to split the database into two subsets, the one used for training and the one used for validation. This is done with the `initial_split()` command of the `rsample` package. The training dataset, the one used for training the model and the one used to validate the model metrics can then be separated to help the selection, from a set of models applied on the same data, that one which performs best. It could be separated into two subsets (training and test), but it is a better practice to perform a cross-validation, so this one will be applied.
 
 ```{r}
+# Partition on training and test
 heart_split <- initial_split(heart.data, prop = .8)
 data_train <- training(heart_split)
 data_validate <- testing(heart_split)
-
 ```
 
 For simplicity we only consider 7 of the 11 explanatory variables.
+
 ```{r}
 variables <- c("Age", "Sex", "RestingBP", "Cholesterol", "FastingBS", "RestingECG", "MaxHR", "HeartDisease")
 data_train <- data_train %>% dplyr::select(all_of(variables))
@@ -203,3 +209,25 @@ The command `rsample::vfold_cv()` generates the 80 subsets of equal size, varyin
 ## Tune model parameters
 
 ## Prediction 
+
+## Implementation of k-means algorithm
+
+We attempt to implement a new method in order to achieve a further analysis of the data. Before that, we apply PCA and select the principal components which explain most of the variability of the dataset. To apply both techniques, it is compulsory to select the numeric attributes and highly recommendable to scale them.
+
+```{r}
+# PCA components
+pca_comp <- heart.data %>%
+select(where(is.numeric)) %>%
+prcomp(scale. = TRUE)
+tidy(pca_comp)
+```
+
+First, we plot the first two PCA components and visualize if the classes form differentiated clusters.
+
+```{r}
+aug_pca <- augment(pca, data = heart.data)
+ggplot(data = aug_pca, aes(x = .fittedPC1, y = .fittedPC2)) +
+geom_point(aes(col = HeartDisease))
+```
+
+
