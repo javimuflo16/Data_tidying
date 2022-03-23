@@ -98,7 +98,7 @@ The first step is to convert the data into a `h2o`object and then, to identify t
 
 Then, it is important to mention that there will not be splitting into train and test, since we will use cross-validation metrics on the leaderboard model. Thus, we have to specify the number of folds (in our case will be `nfolds = 8`) needed to the cross-validation process. However, we do not have to indicate the predictors names, instead only the`dataFrame`and the response variable. In addition, we do not exclude any algorithm in `h2o.automl()` method, but we limit the time for fitting the models (`max_runtime_secs = 30` and `max_runtime_secs_per_model = 5`)
 
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 # Initialize h2o
 h2o.init()
 # Send data to local H2O cluster
@@ -164,19 +164,24 @@ data_validate <- testing(heart_split)
 For simplicity we only consider 7 of the 11 explanatory variables.
 
 ```{r}
-variables <- c("Age", "Sex", "RestingBP", "Cholesterol", "FastingBS", "RestingECG", "MaxHR", "HeartDisease")
+variables <- c("Age", "Sex", "RestingBP", "Cholesterol", "FastingBS", 
+               "RestingECG", "MaxHR", "HeartDisease")
 data_train <- data_train %>% dplyr::select(all_of(variables))
 data_validate <- data_validate %>% dplyr::select(all_of(variables))
 ```
 
-## Build a model
+## Logistic model
+
+### Build a model
 
 As the variable of interest `HeartDisease` is a binary variable, a logistic regression model is chosen, which will be our basis. 
 An object shall be created that stores the formula for later use:
 
 ```{r, message=FALSE, warning=FALSE, cache=TRUE}
-glm_fit <- glm(HeartDisease ~ Age + Sex + RestingBP + Cholesterol + FastingBS + RestingECG + MaxHR , data = data_train, family = binomial)
-glm_fit_formula <- as.formula(HeartDisease ~ Age + Sex + RestingBP + Cholesterol + FastingBS + RestingECG + MaxHR)
+glm_fit <- glm(HeartDisease ~ Age + Sex + RestingBP + Cholesterol + FastingBS + 
+                 RestingECG + MaxHR , data = data_train, family = binomial)
+glm_fit_formula <- as.formula(HeartDisease ~ Age + Sex + RestingBP + Cholesterol +
+                 FastingBS + RestingECG + MaxHR)
 ```
 
 
@@ -188,7 +193,7 @@ glance(glm_fit)
 
 
 
-## Preprocess our data with recipes
+### Preprocess our data with recipes
 
 The `resample` package will be used to evaluate the model. Ten cross-validations, each of 8 _folds_, will be used, therefore 80 samples will be obtained to evaluate the accuracy of the model.
 
@@ -206,9 +211,75 @@ The command `rsample::vfold_cv()` generates the 80 subsets of equal size, varyin
 
 - `id`: stores the id of the fold and of the repetition to which the data corresponds.
 
-## Tune model parameters
 
-## Prediction 
+### Prediction
+Next, to assess the accuracy of the model for each of the samples generated with the cross-validation we will create a function that will mainly do the following: 
+
+1. A logistic regression and model fit for the _analysis_ data.
+
+2. Prediction on the _assessment_ data using one of the most prominent packages of the `tidymodels` package, `broom`.
+
+3. Checking whether the prediction was performed correctly.
+
+```{r}
+res_leftout <- function(samplecv, model) {
+  # Fit the model
+  glm_model <- glm(model, data = analysis(samplecv), family = binomial)
+  
+  # Identify the dataset left out
+  holdout <- assessment(samplecv)
+  
+  # Perfoms prediction on the data set hold out using augment()
+  res <- broom::augment(glm_model, newdata = holdout)
+  
+  # lvls will be the levels of the factor with the predictions
+  # the prediction (res$.fitted) is transformed into a nominal variable 
+  # depending on whether it is greater or less than zero
+  # If greater than zero, then No (no heart attack), otherwise Yes.
+  lvls <- levels(holdout$HeartDisease)
+  predictions <- factor(ifelse(res$.fitted > 0, lvls[2], lvls[1]), levels = lvls)
+  
+  # We check if the prediction is correct
+  res$correct <- predictions == holdout$HeartDisease
+  
+  # Return the dataset with the additional columns
+  res
+}
+```
+
+For example, if we implement this procedure for the first of the 80 samples generated we obtain:
+
+```{r}
+firstsample <- res_leftout(folds_with_repeats$splits[[1]], glm_fit_formula)
+dim(firstsample)
+dim(rsample::assessment(folds_with_repeats$splits[[1]]))
+```
+
+Therefore, the name of the columns added for the first of the samples is:
+
+```{r}
+print(firstsample[1:7, setdiff("correct", names("HeartDisease"))])
+```
+As we can see, half of the predictions in the first sample are incorrect. For this particular model, `.fitted` refers to the linear predictor of the _log-odds_.
+
+To do the above with the rest of the 79 samples obtained, we will apply the `purrr::map()` function, which applies the requested on each list:
+
+```{r}
+folds_with_repeats$results <- purrr::map(folds_with_repeats$splits, res_leftout,
+                                glm_fit_formula)
+print(folds_with_repeats)
+```
+
+We can now calculate the metric for all _assessment_ datasets. The percentage of heart diseases with a correct prediction is calculated:
+
+```{r}
+folds_with_repeats$results <- map_dbl(folds_with_repeats$results, function(x) {mean(x$correct)})
+boxplot(folds_with_repeats$results, 
+        main = 'Distribution of prediction according to the eighty subsets', 
+        col = 'grey', ylab = 'Percentage', cex.main = 0.8, cex.lab = 0.8, cex.axis = 0.8)
+```
+
+The accuracy to be exceeded from this baseline is 0.73. Let's see if we can overcome it by applying a classification method such as k-means.
 
 ## Implementation of k-means algorithm
 
@@ -225,7 +296,7 @@ tidy(pca_comp)
 First, we plot the first two PCA components and visualize if the classes form differentiated clusters.
 
 ```{r}
-aug_pca <- augment(pca, data = heart.data)
+aug_pca <- augment(pca_comp, data = heart.data)
 ggplot(data = aug_pca, aes(x = .fittedPC1, y = .fittedPC2)) +
 geom_point(aes(col = HeartDisease))
 ```
