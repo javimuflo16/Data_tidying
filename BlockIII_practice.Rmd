@@ -13,6 +13,7 @@ library(h2o)
 library(tidymodels)
 library(dplyr)
 library(ggplot2)
+library(corrr)
 ```
 
 \newpage
@@ -38,16 +39,6 @@ The dataset selected contains several patient records of different medical measu
 
 Clearly, it is a binary classification problem since the target variable has two levels.
 
-We show the correlation between the numeric variables through a niceplot to carry out a first exploratory analysis.
-
-```{r}
-# Plot correlation
-data_num <- heart.data %>%
-select(where(is.numeric)) 
-corr <- correlate(data_num)
-rplot(corr, print_cor = TRUE)
-```
-
 # Preprocessing 
 
 First of all, it is suitable to visualize the data and to identify if there are missing values which could add noise and disrupt the performance of the future models created.
@@ -57,6 +48,16 @@ First of all, it is suitable to visualize the data and to identify if there are 
 heart.data <- read.csv("heart.csv")
 # Data summary
 summary(heart.data)
+```
+
+We show the correlation between the numeric variables through a nice plot to carry out a first exploratory analysis.
+
+```{r}
+# Plot correlation
+data_num <- heart.data %>%
+select(where(is.numeric)) 
+corr <- correlate(data_num)
+rplot(corr, print_cor = TRUE)
 ```
 
 ```{r}
@@ -152,7 +153,7 @@ Because of the short report we must to hand in, it has not be possible to do a l
 ```{r, warning=FALSE, out.width = '50%', message=FALSE, cache=TRUE}
 exp <- h2o.explain(object = model_h, newdata = data.h)
 exp
-h2o.
+h2o.shutdown(prompt = FALSE)
 ```
  Clearly, the most important variable is *ST_Slope*, an important feature which can be seen in an electrocardiogram. As expected, these unbiased features related with the functionality of the heart have an crucial role in the prediction.
  
