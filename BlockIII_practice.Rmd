@@ -2,16 +2,20 @@
 title: "Block III"
 author: "Sara Dovalo and Javier Muñoz Flores"
 date: "21/3/2022"
-output: pdf_document
+output: 
+  pdf_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(h2o)
+library(tidymodels)
 library(dplyr)
 library(ggplot2)
 ```
 
+\newpage
 # Introduction
 
 The content of this section is, mainly, a further description of the dataset used as well as the exposition of the problem to solve. 
@@ -35,7 +39,7 @@ Clearly, it is a binary classification problem since the target variable has two
 
 # Preprocessing 
 
-First of all , it is suitable to visualize the data and to identify if there are missing values which could add noise and disrupt the performance of the future models created.
+First of all, it is suitable to visualize the data and to identify if there are missing values which could add noise and disrupt the performance of the future models created.
 
 ```{r, include = FALSE}
 # Load data and rename first column
@@ -62,7 +66,7 @@ heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
 
 Furthermore, since the dataset includes several categorical attributes, it is necessary to transform them into *factors*. 
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # Categorical variables as factors
 heart.data = heart.data %>% 
        mutate_each_(funs(factor(.)),c(2,3,6,7,9,11,12))
@@ -71,20 +75,21 @@ str(heart.data)
 
 To finish this section, we check if the classes of the response `HeartDisease` are balanced or not. We visualize it through a barplot to see it more clearly.
 
-```{r}
+```{r, out.width = '50%'}
 # Count the observation of each class
 heart.data %>%
 count(HeartDisease)
 # Barplot
 ggplot(heart.data, aes(HeartDisease)) + geom_bar()
 ```
+
 The classes are balanced, it will be not needed to over/undersampling the sample.
 
-## Modelling with `H2O`package
+# Modelling with `H2O` package
 
 We follow the same procedure that we did in classroom for using `h2o.automl()`, i.e. fitting, benchmarking, predicting and explaining, in that order.
 
-### Fitting 
+## Fitting 
 
 Before starting with the selection of the models, the *local H2O cluster* is initialized in order to leverage the parallelization in the virtual machine which the package provides and to use H2O functions.
 
@@ -92,7 +97,7 @@ The first step is to convert the data into a `h2o`object and then, to identify t
 
 Then, it is important to mention that there will not be splitting into train and test, since we will use cross-validation metrics on the leaderboard model. Thus, we have to specify the number of folds (in our case will be `nfolds = 8`) needed to the cross-validation process. However, we do not have to indicate the predictors names, instead only the`dataFrame`and the response variable. In addition, we do not exclude any algorithm in `h2o.automl()` method, but we limit the time for fitting the models (`max_runtime_secs = 30` and `max_runtime_secs_per_model = 5`)
 
-```{r}
+```{r, message=FALSE, cache=TRUE}
 # Initialize h2o
 h2o.init()
 # Send data to local H2O cluster
@@ -107,11 +112,11 @@ model_h <- h2o.automl(y = resp_h, training_frame = data.h, max_runtime_secs = 30
 seed = 1, verbosity = NULL)
 ```
 
-### Benchmarking
+## Benchmarking
 
 In this section, we have to explore the leaderboard of models in order to carry out a first comparison.
 
-```{r}
+```{r, cache=TRUE}
 # Leaderboard
 lead_h <- model_h@leaderboard
 names(lead_h)[5] <- "mpce" # Rename mean_per_class_error to shorten output
@@ -119,23 +124,82 @@ print(lead_h[, -6], n = nrow(lead_h)) # Exclude final column to fit the table in
 ```
 The leader has been a *StackedEnsemble* model with an error
 
-### Prediction
+## Prediction
 
 We select the leader of the models and predict a few rows.
 
-```{r}
+```{r, cache=TRUE}
 h2o.predict(object = model_h@leader, newdata = data.h[1:8, ])
 ```
 
-### Explanation
+## Explanation
 
-```{r}
+```{r, warning=FALSE, out.width = '50%', message=FALSE, cache=TRUE}
 exp <- h2o.explain(object = model_h, newdata = data.h)
 exp
 ```
 
 
+\newpage
+# Modelling with `tidymodels` package
+`Tidymodelsis` an interface that unifies hundreds of functions from different packages, facilitating all stages of pre-processing, training, optimisation and validation of predictive models. 
+The main packages that are part of the tidymodels ecosystem are:`brrom`, `rsample`, `parsnip`, `discrim`, `corr` y `tidypredict` among others.
+
+This package offers so many possibilities that they can hardly be shown with a single example.
+
+The first step is to split the database into two subsets, the one used for training and the one used for validation. This is done with the `initial_split()` command of the `rsample` package. The training dataset, the one used for training the model and the one used to validate the model metrics can then be separated to help select from a set of models applied on the same data which one performs best. It could be separated into two subsets (training and test), but it is best practice to perform a cross-validation, so this one will be applied.
+
+```{r}
+heart_split <- initial_split(heart.data, prop = .8)
+data_train <- training(heart_split)
+data_validate <- testing(heart_split)
+
+```
+
+For simplicity we only consider 7 of the 11 explanatory variables.
+```{r}
+variables <- c("Age", "Sex", "RestingBP", "Cholesterol", "FastingBS", "RestingECG", "MaxHR", "HeartDisease")
+data_train <- data_train %>% dplyr::select(all_of(variables))
+data_validate <- data_validate %>% dplyr::select(all_of(variables))
+```
+
+## Build a model
+
+As the variable of interest `HeartDisease` is a binary variable, a logistic regression model is chosen, which will be our basis. 
+An object shall be created that stores the formula for later use:
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
+glm_fit <- glm(HeartDisease ~ Age + Sex + RestingBP + Cholesterol + FastingBS + RestingECG + MaxHR , data = data_train, family = binomial)
+glm_fit_formula <- as.formula(HeartDisease ~ Age + Sex + RestingBP + Cholesterol + FastingBS + RestingECG + MaxHR)
+```
+
+
+```{r}
+summary(glm_fit)
+tidy(glm_fit)
+glance(glm_fit)
+```
 
 
 
+## Preprocess our data with recipes
 
+The `resample` package will be used to evaluate the model. Ten cross-validations, each of 8 _folds_, will be used, therefore 80 samples will be obtained to evaluate the accuracy of the model.
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
+set.seed(1234)
+folds_with_repeats <- rsample::vfold_cv(data = data_train, v = 8, repeats = 10)
+print(folds_with_repeats)
+```
+
+The command `rsample::vfold_cv()` generates the 80 subsets of equal size, varying the seed of the subdivision. The result generates an object with three variables: the repetition (`id`), the fold (`id2`) and splits. `splits` is a variable that stores a list of size (_v_*_repeats_)*3, where _v_ is the number of folds and _repeat_ the number of repetitions. Each element of the list is an object of the tibble class with several variables: 
+
+- `data`: matrix of dimension n*p, where n is the number of records and p the number of variables.
+
+- `in_id`: logical index of the position of the records in the data that belong to the records being analysed. This set of records is called analisys, and the one left out is called assessment. 
+
+- `id`: stores the id of the fold and of the repetition to which the data corresponds.
+
+## Tune model parameters
+
+## Prediction 
