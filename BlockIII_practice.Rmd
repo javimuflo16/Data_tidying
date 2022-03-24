@@ -43,7 +43,7 @@ Clearly, it is a binary classification problem since the target variable has two
 
 First of all, it is suitable to visualize the data and to identify if there are missing values which could add noise and disrupt the performance of the future models created.
 
-```{r, include = FALSE}
+```{r, include = FALSE, results = "hide"}
 # Load data and rename first column
 heart.data <- read.csv("heart.csv")
 # Data summary
@@ -52,7 +52,7 @@ summary(heart.data)
 
 We show the correlation between the numeric variables through a nice plot to carry out a first exploratory analysis.
 
-```{r}
+```{r echo = FALSE, fig.align = "center", fig.height=5, fig.width=5, results = "hide", message=FALSE}
 # Plot correlation
 data_num <- heart.data %>%
 select(where(is.numeric)) 
@@ -60,14 +60,11 @@ corr <- correlate(data_num)
 rplot(corr, print_cor = TRUE)
 ```
 
-```{r}
-# Count number of zeros (missing values)
-heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
-```
-
 We notice that the variable `Cholesterol` contains 172 values equal to zero. They must be considered as missing values as a person cannot that such a low level of cholesterol in blood. We decide to eliminate those observations that have a zero in that variable. 
 
-```{r}
+```{r, results = "hide"}
+# Count number of zeros (missing values)
+heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
 # Eliminate rows which contain 0 in variable Cholesterol
 heart.data = heart.data %>%
 filter(Cholesterol != 0)
@@ -78,7 +75,7 @@ heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
 
 Furthermore, since the dataset includes several categorical attributes, it is necessary to transform them into *factors*. 
 
-```{r, warning=FALSE, message=FALSE}
+```{r warning=FALSE, message=FALSE, results = "hide"}
 # Categorical variables as factors
 heart.data = heart.data %>% 
        mutate_each_(funs(factor(.)),c(2,3,6,7,9,11,12))
@@ -87,10 +84,12 @@ str(heart.data)
 
 To finish this section, we check if the classes of the response `HeartDisease` are balanced or not. We visualize it through a barplot to see it more clearly.
 
-```{r, out.width = '50%'}
+```{r, out.width = '50%', include = FALSE}
 # Count the observation of each class
 heart.data %>%
 count(HeartDisease)
+```
+```{r echo=FALSE}
 # Barplot
 ggplot(heart.data, aes(HeartDisease)) + geom_bar()
 ```
@@ -109,7 +108,7 @@ The first step is to convert the data into a `h2o`object and then, to identify t
 
 Then, it is important to mention that there will not be splitting into train and test, since we will use cross-validation metrics on the leaderboard model. Thus, we have to specify the number of folds (in our case will be `nfolds = 8`) needed to the cross-validation process. However, we do not have to indicate the predictors names, instead only the`dataFrame`and the response variable. In addition, we do not exclude any algorithm in `h2o.automl()` method, but we limit the time for fitting the models (`max_runtime_secs = 30` and `max_runtime_secs_per_model = 5`)
 
-```{r, message=FALSE}
+```{r, message=FALSE, include=FALSE}
 # Initialize h2o
 h2o.init()
 h2o.no_progress()
@@ -120,6 +119,9 @@ h2o.describe(data.h)
 # Identify the names of the response and predictors
 resp_h <- "HeartDisease"
 pred_h<- setdiff(names(data.h), resp_h)
+```
+
+```{r, echo = FALSE, results = "hide"}
 # Call h2o.automl()
 model_h <- h2o.automl(y = resp_h, training_frame = data.h, max_runtime_secs = 30,max_runtime_secs_per_model = 5, nfolds = 8,
 seed = 1, verbosity = NULL)
@@ -127,22 +129,22 @@ seed = 1, verbosity = NULL)
 
 ## Benchmarking
 
-In this section, we have to explore the leaderboard of models in order to carry out a first comparison.
+In this section, we have to explore the leaderboard of models in order to carry out a first comparison. We visualize the errors associated to each of the models
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, }
 # Leaderboard
 lead_h <- model_h@leaderboard
 names(lead_h)[5] <- "mpce" # Rename mean_per_class_error to shorten output
 print(lead_h[, -6], n = nrow(lead_h)) # Exclude final column to fit the table in one page
 ```
 
-The leader has been a *StackedEnsemble* model with an error
+The leader has been a *StackedEnsemble* model with the lowest errors.
 
 ## Prediction
 
 We select the leader of the models and predict a few rows.
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, results = "hide"}
 h2o.predict(object = model_h@leader, newdata = data.h[1:8, ])
 ```
 
@@ -334,3 +336,31 @@ geom_point(aes(col = .cluster, pch = HeartDisease))
 
 It seems that now there is less overlapping, if we look at the cluster *k-means* division. It suggests that cluster *k-means* division may distinguish two different population in a better way than the classes do it.
 
+# Appendix
+
+```{r}
+# Load data and rename first column
+heart.data <- read.csv("heart.csv")
+# Data summary
+summary(heart.data)
+# Plot correlation
+data_num <- heart.data %>%
+select(where(is.numeric)) 
+corr <- correlate(data_num)
+rplot(corr, print_cor = TRUE)
+# Count number of zeros (missing values)
+heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
+# Eliminate rows which contain 0 in variable Cholesterol
+heart.data = heart.data %>%
+filter(Cholesterol != 0)
+# Number of missing values
+heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
+# Categorical variables as factors
+heart.data = heart.data %>% 
+       mutate_each_(funs(factor(.)),c(2,3,6,7,9,11,12))
+str(heart.data)
+# Count the observation of each class
+heart.data %>%
+count(HeartDisease)
+# Barplot
+ggplot(heart.data, aes(HeartDisease)) + geom_bar()
