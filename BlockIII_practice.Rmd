@@ -52,7 +52,7 @@ summary(heart.data)
 
 We show the correlation between the numeric variables through a nice plot to carry out a first exploratory analysis.
 
-```{r echo = FALSE, fig.align = "center", fig.height=4, fig.width=8, results = "hide", message=FALSE}
+```{r echo = FALSE, fig.align = "center", results = "hide", message=FALSE, out.width = '50%'}
 # Plot correlation
 data_num <- heart.data %>%
 select(where(is.numeric)) 
@@ -72,9 +72,7 @@ filter(Cholesterol != 0)
 heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
 ```
 
-
-Furthermore, since the dataset includes several categorical attributes, it is necessary to transform them into *factors*. 
-
+Furthermore, since the dataset includes several categorical attributes, it is necessary to transform them into factor variables. 
 ```{r warning=FALSE, message=FALSE, results = "hide"}
 # Categorical variables as factors
 heart.data = heart.data %>% 
@@ -89,7 +87,7 @@ To finish this section, we check if the classes of the response `HeartDisease` a
 heart.data %>%
 count(HeartDisease)
 ```
-```{r echo=FALSE, fig.align = "center", fig.height=4, fig.width=8}
+```{r echo=FALSE, fig.align = "center", out.width = '50%'}
 # Barplot
 ggplot(heart.data, aes(HeartDisease)) + geom_bar()
 ```
@@ -102,11 +100,11 @@ We follow the same procedure that we did in classroom for using `h2o.automl()`, 
 
 ## Fitting 
 
-Before starting with the selection of the models, the *local H2O cluster* is initialized in order to leverage the parallelization in the virtual machine which the package provides and to use H2O functions.
+Before starting with the selection of the models, the *local h2o cluster* is initialized in order to leverage the parallelization in the virtual machine which the package provides and to use h2o functions.
 
-The first step is to convert the data into a `h2o`object and then, to identify the names of the predictors as well as the name of the response.
+The first step is to convert the data into a `h2o` object and then, to identify the names of the predictors as well as the name of the response.
 
-Then, it is important to mention that there will not be splitting into train and test, since we will use cross-validation metrics on the leaderboard model. Thus, we have to specify the number of folds (in our case will be `nfolds = 8`) needed to the cross-validation process. However, we do not have to indicate the predictors names, instead only the`dataFrame`and the response variable. In addition, we do not exclude any algorithm in `h2o.automl()` method, but we limit the time for fitting the models (`max_runtime_secs = 30` and `max_runtime_secs_per_model = 5`)
+Then, it is important to mention that there will not be splitting into train and test, since we will use cross-validation metrics on the leaderboard model. Thus, we have to specify the number of folds (in our case will be `nfolds = 8`) needed to the cross-validation process. However, we do not have to indicate the predictors names, instead only the `dataframe` and the response variable. In addition, we do not exclude any algorithm in `h2o.automl()` method, but we limit the time for fitting the models (`max_runtime_secs = 30` and `max_runtime_secs_per_model = 5`).
 
 ```{r, message=FALSE, include=FALSE}
 # Initialize h2o
@@ -129,7 +127,7 @@ seed = 1, verbosity = NULL)
 
 ## Benchmarking
 
-In this section, we have to explore the leaderboard of models in order to carry out a first comparison. We visualize the errors associated to each of the models
+In this section, we have to explore the leaderboard of models in order to carry out a first comparison. We visualize the errors associated to each of the models.
 
 ```{r, cache=TRUE, }
 # Leaderboard
@@ -150,24 +148,23 @@ h2o.predict(object = model_h@leader, newdata = data.h[1:2, ])
 
 ## Explanation
 
-Because of the short report we must to hand in, it has not be possible to do a large interpretation of the plot results. However, it is suitable to identify what are the variables most important for the model and the correlation of them with the response. Thus, we use *SHAP* plot and *Variable Importance* plot to carry out a short explanation. 
+Because of the short report we must to hand in, it has not be possible to do a large interpretation of the plot results. However, it is suitable to identify what are the variables most important for the model and the correlation of them with the response. Thus, we use SHAP plot and variable importance plot to carry out a short explanation. 
 
 ```{r, warning=FALSE, out.width = '50%', message=FALSE, cache=TRUE}
 exp <- h2o.explain(object = model_h, newdata = data.h)
 exp
 h2o.shutdown(prompt = FALSE)
 ```
- Clearly, the most important variable is *ST_Slope*, an important feature which can be seen in an electrocardiogram. As expected, these unbiased features related with the functionality of the heart have an crucial role in the prediction.
- 
-*SHAP* plot, for instance, reveals that women are more correlated with the response than men, a point that is not so clear in a first view.
 
-\newpage
+Clearly, the most important variable is `ST_Slope`, an important feature which can be seen in an electrocardiogram. As expected, these unbiased features related with the functionality of the heart have an crucial role in the prediction.
+ 
+SHAP plot, for instance, reveals that women are more correlated with the response than men, a point that is not so clear in a first view.
+
+
 
 # Modelling with `tidymodels` package
 
 `Tidymodels`is an interface that unifies hundreds of functions from different packages, facilitating all stages of pre-processing, training, optimization and validation of predictive models. 
-
-The main packages that are part of the `tidymodels` ecosystem are:`brrom`, `rsample`, `parsnip`, `discrim`, `corr` y `tidypredict`, among others.
 
 This package offers so many possibilities that they can hardly be shown with a single example.
 
@@ -205,12 +202,12 @@ glm_fit_formula <- as.formula(HeartDisease ~ Age + Sex + RestingBP + Cholesterol
 
 
 ```{r}
-summary(glm_fit)
 tidy(glm_fit)
-glance(glm_fit)
 ```
 
+With the `broom::tidy()` object that returns information about the components of the model we can clearly see that men are more likely to have heart disease. Furthermore, the positive sign of the coefficients associated with the variables `Age`, `RestingBP` and `Cholesterol` means that they are positively correlated positively with our response variable, `HeartDisease`, that is, a person with an advanced age and a high cholesterol level will be more likely to have a heart disease, as expected.
 
+However, the p-value associated with the variables `FastingBS1` and `RestingECGST` is quite large which means that perhaps these variables are not statistically significant in predicting whether a person will have heart disease or not.
 
 ### Preprocess our data with recipes
 
@@ -288,21 +285,20 @@ To do the above with the rest of the 79 samples obtained, we will apply the `pur
 ```{r}
 folds_with_repeats$results <- purrr::map(folds_with_repeats$splits, res_leftout,
                                 glm_fit_formula)
-print(folds_with_repeats)
 ```
 
 We can now calculate the metric for all _assessment_ datasets. The percentage of heart diseases with a correct prediction is calculated:
 
-```{r}
+```{r, out.width = '50%'}
 folds_with_repeats$results <- map_dbl(folds_with_repeats$results, function(x) {mean(x$correct)})
 boxplot(folds_with_repeats$results, 
         main = 'Distribution of prediction according to the eighty subsets', 
         col = 'grey', ylab = 'Percentage', cex.main = 0.8, cex.lab = 0.8, cex.axis = 0.8)
 ```
 
-The accuracy to be exceeded from this baseline is 0.73. Let's see if we can overcome it by applying a classification method such as k-means.
+The accuracy to be exceeded from this baseline is 0.73. 
 
-## Implementation of k-means algorithm
+## Classification: Implementation of k-means algorithm
 
 We attempt to implement a new method in order to achieve a further analysis of the data. Before that, we apply PCA and select the principal components which explain most of the variability of the dataset. To apply both techniques, it is compulsory to select the numeric attributes and highly recommendable to scale them.
 
@@ -314,9 +310,9 @@ prcomp(scale. = TRUE)
 tidy(pca_comp)
 ```
 
-First, we plot the first two PCA components and visualize if the classes form differentiated clusters. By using the `augment()` function, we can complement the results as the PCA technique as the *k-means* algorithm. It is very useful in order to plot the categorization *k-means* in terms of the first two PCA components.
+First, we plot the first two PCA components and visualize if the classes form differentiated clusters. By using the `broom::augment()` function, we can complement the results as the PCA technique as the *k-means* algorithm. It is very useful in order to plot the categorization *k-means* in terms of the first two PCA components.
 
-```{r}
+```{r, out.width = '50%'}
 aug_pca <- augment(pca_comp, data = heart.data)
 ggplot(data = aug_pca, aes(x = .fittedPC1, y = .fittedPC2)) +
 geom_point(aes(col = HeartDisease))
@@ -324,7 +320,7 @@ geom_point(aes(col = HeartDisease))
 
 We cannot distinguish two groups in the data. We apply *k-means* method and again visualize through the first two PCA components the division in clusters which has carried out the algorithm.
 
-```{r}
+```{r, out.width = '50%'}
 k_m <- heart.data %>%
 select(where(is.numeric)) %>%
 kmeans(centers = 2)
@@ -336,31 +332,3 @@ geom_point(aes(col = .cluster, pch = HeartDisease))
 
 It seems that now there is less overlapping, if we look at the cluster *k-means* division. It suggests that cluster *k-means* division may distinguish two different population in a better way than the classes do it.
 
-# Appendix
-
-```{r, eval = FALSE}
-# Load data and rename first column
-heart.data <- read.csv("heart.csv")
-# Data summary
-summary(heart.data)
-# Plot correlation
-data_num <- heart.data %>%
-select(where(is.numeric)) 
-corr <- correlate(data_num)
-rplot(corr, print_cor = TRUE)
-# Count number of zeros (missing values)
-heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
-# Eliminate rows which contain 0 in variable Cholesterol
-heart.data = heart.data %>%
-filter(Cholesterol != 0)
-# Number of missing values
-heart.data %>% filter(Cholesterol == 0) %>% summarize(count = n())
-# Categorical variables as factors
-heart.data = heart.data %>% 
-       mutate_each_(funs(factor(.)),c(2,3,6,7,9,11,12))
-str(heart.data)
-# Count the observation of each class
-heart.data %>%
-count(HeartDisease)
-# Barplot
-ggplot(heart.data, aes(HeartDisease)) + geom_bar()
