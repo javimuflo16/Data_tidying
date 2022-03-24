@@ -52,7 +52,7 @@ summary(heart.data)
 
 We show the correlation between the numeric variables through a nice plot to carry out a first exploratory analysis.
 
-```{r echo = FALSE, fig.align = "center", fig.height=5, fig.width=5, results = "hide", message=FALSE}
+```{r echo = FALSE, fig.align = "center", fig.height=4, fig.width=8, results = "hide", message=FALSE}
 # Plot correlation
 data_num <- heart.data %>%
 select(where(is.numeric)) 
@@ -84,12 +84,12 @@ str(heart.data)
 
 To finish this section, we check if the classes of the response `HeartDisease` are balanced or not. We visualize it through a barplot to see it more clearly.
 
-```{r, out.width = '50%', include = FALSE}
+```{r, include = FALSE}
 # Count the observation of each class
 heart.data %>%
 count(HeartDisease)
 ```
-```{r echo=FALSE}
+```{r echo=FALSE, fig.align = "center", fig.height=4, fig.width=8}
 # Barplot
 ggplot(heart.data, aes(HeartDisease)) + geom_bar()
 ```
@@ -135,17 +135,17 @@ In this section, we have to explore the leaderboard of models in order to carry 
 # Leaderboard
 lead_h <- model_h@leaderboard
 names(lead_h)[5] <- "mpce" # Rename mean_per_class_error to shorten output
-print(lead_h[, -6], n = nrow(lead_h)) # Exclude final column to fit the table in one page
+print(lead_h[2, -6], n = nrow(lead_h)) # Exclude final column to fit the table in one page
 ```
 
 The leader has been a *StackedEnsemble* model with the lowest errors.
 
 ## Prediction
 
-We select the leader of the models and predict a few rows.
+We select the leader of the models and predict a few rows in order to show the probabilities associated with each class, since it is a binary prediction problem.
 
 ```{r, cache=TRUE, results = "hide"}
-h2o.predict(object = model_h@leader, newdata = data.h[1:8, ])
+h2o.predict(object = model_h@leader, newdata = data.h[1:2, ])
 ```
 
 ## Explanation
@@ -338,7 +338,7 @@ It seems that now there is less overlapping, if we look at the cluster *k-means*
 
 # Appendix
 
-```{r}
+```{r, eval = FALSE}
 # Load data and rename first column
 heart.data <- read.csv("heart.csv")
 # Data summary
